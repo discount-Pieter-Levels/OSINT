@@ -83,17 +83,47 @@
           <div class="field-grid">
             <div>
               <label for="profile1">Profile 1</label>
-              <textarea id="profile1">{"username":"alex_analyst","display_name":"Alex Chen","bio":"Computer science student in Bangalore, loves coffee and open source.","captions":["Building a data dashboard","Coffee break before the next sprint"],"hashtags":["#ai","#opensource","#coffee"],"posting_times":["2026-05-14T20:35:22"],"profile_image":""}</textarea>
+              <textarea id="profile1">name: sachit (@sr71__)
+followers: 12
+following: 133
+posts: 2
+bio: 7\ Jack of All, Master of try SCE to AUX
+links: spikenets.substack.com, sachitrame.sh
+
+post1:
+--url: https://www.instagram.com/p/DaYunYyTFMJ/
+--date: July 04, 2026 (~1 hour ago at time of check)
+--caption: (none - no caption text found on post)
+--likes: 0 ("Be the first to like this")
+--description: Image/meme with hexagonal grid diagram labeled "Mi9", "T4d", "Dorsal", "Anterior" with numeric values (-8.2, -7.9, -2.9, -2.1, -1.1)
+
+post2:
+--url: https://www.instagram.com/p/DaYlvS1Tvc0/
+--date: ~3 hours ago at time of check
+--caption: (none - no caption text found on post)
+--likes: 1
+--description: Illustration of an orange character wearing a blue cap that reads "Please be patient I have claudism"</textarea>
             </div>
             <div>
               <label for="profile2">Profile 2</label>
-              <textarea id="profile2">{"username":"alexanalyst","display_name":"Alexander Chen","bio":"CS student in Bangalore, enjoys coffee and community coding.","captions":["Working on a data dashboard","Taking a coffee break before sprint"],"hashtags":["#opensource","#coffee","#tech"],"posting_times":["2026-05-14T21:35:22"],"profile_image":""}</textarea>
+              <textarea id="profile2">name: alex chen (@alexanalyst)
+followers: 98
+following: 120
+posts: 3
+bio: CS student in Bangalore, enjoys coffee and community coding.
+
+post1:
+--url: https://www.instagram.com/p/Example/
+--date: 2026-05-14T21:35:22
+--caption: Working on a data dashboard
+--likes: 4
+--description: Screenshot of a data dashboard</textarea>
             </div>
           </div>
           <div class="actions">
             <button class="button" onclick="runComparison()">Compare profiles</button>
           </div>
-          <p class="note">Paste two public profile JSON payloads to evaluate similarity with transparent feature scoring.</p>
+          <p class="note">Paste two public profile dumps in the human-readable format (e.g. lines like "name:", "post1:", "--date:", "--caption:").</p>
         </div>
         <div class="panel results" id="results" style="display:none;">
           <div class="score-card">
@@ -109,25 +139,13 @@
     </div>
     <script>
       async function runComparison() {
+        // Send raw pasted text to server for parsing (no client-side JSON.parse)
         const raw1 = document.getElementById('profile1').value;
         const raw2 = document.getElementById('profile2').value;
-        let p1, p2;
-        try {
-          p1 = JSON.parse(raw1);
-        } catch (e) {
-          // send raw text to server for lenient parsing
-          p1 = raw1;
-        }
-        try {
-          p2 = JSON.parse(raw2);
-        } catch (e) {
-          p2 = raw2;
-        }
-
         const response = await fetch('/compare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profile1: p1, profile2: p2 })
+          body: JSON.stringify({ profile1: raw1, profile2: raw2 })
         });
         const data = await response.json();
         document.getElementById('results').style.display = 'block';
