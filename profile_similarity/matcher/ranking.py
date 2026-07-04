@@ -14,10 +14,7 @@ def rank_profiles(profile1: Dict[str, object], profile2: Dict[str, object]) -> D
         "captions",
         "stylometry",
         "topics",
-        "hashtags",
-        "emoji",
         "posting",
-        "image",
     ]:
         explanations.append({"feature": feature_name, "score": scores.get(feature_name, 0.0), "reason": reasons.get(feature_name, "")})
     return {

@@ -8,9 +8,6 @@ except Exception:
     _date_parser = None
 
 
-_HASHTAG_RE = re.compile(r"(?:#|＃)([\w\-]+)", re.UNICODE)
-
-
 def _parse_date(s: Any) -> str:
     if not s:
         return ""
@@ -34,12 +31,6 @@ def _parse_date(s: Any) -> str:
     return s_str
 
 
-def _extract_hashtags(text: str) -> List[str]:
-    if not text:
-        return []
-    return [f"#{m.group(1)}" for m in _HASHTAG_RE.finditer(text)]
-
-
 def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a noisy profile dict into the canonical app format.
 
@@ -48,9 +39,7 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
       - display_name
       - bio
       - captions (list[str])
-      - hashtags (list[str])
       - posting_times (list[str], ISO-ish)
-      - profile_image (always empty string)
 
     The function is defensive and tolerates many common noisy shapes.
     """
@@ -60,9 +49,7 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
             "display_name": "",
             "bio": "",
             "captions": [],
-            "hashtags": [],
             "posting_times": [],
-            "profile_image": "",
         }
 
     # username / handle
@@ -75,7 +62,6 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
     bio = raw.get("bio") or raw.get("description") or raw.get("about") or ""
 
     captions: List[str] = []
-    hashtags: List[str] = []
     posting_times: List[str] = []
 
     # Some inputs use `posts` list of objects
@@ -87,13 +73,8 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
             text = p.get("caption") or p.get("text") or p.get("message") or ""
             if text:
                 captions.append(text)
-                hashtags.extend(_extract_hashtags(text))
             # hashtags field inside post
-            post_tags = p.get("hashtags") or p.get("tags") or []
-            if isinstance(post_tags, list):
-                for t in post_tags:
-                    if isinstance(t, str):
-                        hashtags.append(t if t.startswith("#") else f"#{t}")
+            # ignore hashtag-like fields entirely per new policy
             # timestamp
             ts = p.get("timestamp") or p.get("time") or p.get("created_at")
             if ts:
@@ -105,14 +86,9 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
         for c in top_caps:
             if isinstance(c, str):
                 captions.append(c)
-                hashtags.extend(_extract_hashtags(c))
 
     # top-level hashtags
-    top_tags = raw.get("hashtags") or raw.get("tags")
-    if isinstance(top_tags, list):
-        for t in top_tags:
-            if isinstance(t, str):
-                hashtags.append(t if t.startswith("#") else f"#{t}")
+    # ignore top-level hashtag/tag fields
 
     # posting_times top-level
     top_times = raw.get("posting_times") or raw.get("timestamps") or raw.get("dates")
@@ -125,25 +101,14 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
         possible = raw.get("caption") or raw.get("text") or raw.get("status")
         if isinstance(possible, str) and possible:
             captions.append(possible)
-            hashtags.extend(_extract_hashtags(possible))
 
-    # Ensure uniqueness and preserve order
-    seen = set()
-    clean_hashtags: List[str] = []
-    for h in hashtags:
-        if h not in seen:
-            seen.add(h)
-            clean_hashtags.append(h)
-
-    # Always drop image data — the UI and model do not rely on raw images
+    # Always drop image and hashtag data — they are not used
     return {
         "username": username,
         "display_name": display_name,
         "bio": bio,
         "captions": captions,
-        "hashtags": clean_hashtags,
         "posting_times": posting_times,
-        "profile_image": "",
     }
 
 

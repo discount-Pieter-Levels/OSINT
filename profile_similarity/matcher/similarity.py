@@ -3,9 +3,6 @@ from typing import Dict, List, Tuple
 from profile_similarity.features.bio import bio_similarity
 from profile_similarity.features.captions import caption_similarity
 from profile_similarity.features.display_name import display_name_similarity
-from profile_similarity.features.emojis import emoji_similarity
-from profile_similarity.features.hashtags import hashtag_similarity
-from profile_similarity.features.image_embedding import image_similarity
 from profile_similarity.features.posting import posting_similarity
 from profile_similarity.features.stylometry import stylometry_similarity
 from profile_similarity.features.topics import topic_similarity
@@ -13,16 +10,13 @@ from profile_similarity.features.username import username_similarity
 
 
 FEATURE_WEIGHTS = {
-    "username": 0.20,
+    "username": 0.25,
     "display_name": 0.10,
-    "bio": 0.20,
+    "bio": 0.25,
     "captions": 0.15,
     "stylometry": 0.10,
     "topics": 0.10,
-    "hashtags": 0.05,
-    "emoji": 0.05,
     "posting": 0.05,
-    "image": 0.10,
 }
 
 
@@ -34,10 +28,7 @@ def compute_feature_scores(profile1: Dict[str, object], profile2: Dict[str, obje
         ("captions", caption_similarity),
         ("stylometry", stylometry_similarity),
         ("topics", topic_similarity),
-        ("hashtags", hashtag_similarity),
-        ("emoji", emoji_similarity),
         ("posting", posting_similarity),
-        ("image", image_similarity),
     ]
     scores = {}
     reasons = {}
