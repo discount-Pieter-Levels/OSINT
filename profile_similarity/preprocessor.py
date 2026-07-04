@@ -145,3 +145,128 @@ def normalize_profile(raw: Dict[str, Any]) -> Dict[str, Any]:
         "posting_times": posting_times,
         "profile_image": "",
     }
+
+
+def parse_plain_text_profile(text: str) -> Dict[str, Any]:
+    """Parse a simple human-readable profile dump into a dict.
+
+    Handles formats like:
+      name: sachit (@sr71__)
+      followers: 12
+      posts: 2
+      post1:
+      --url: https://...
+      --date: July 04, 2026 (~1 hour ago ...)
+      --caption: (none - no caption text found on post)
+      --description: Image/meme ...
+
+    This is intentionally lenient and best-effort.
+    """
+    if not isinstance(text, str):
+        return {}
+
+    lines = [l.rstrip() for l in text.splitlines()]
+    data: Dict[str, Any] = {}
+    posts: List[Dict[str, Any]] = []
+    cur_post: Dict[str, Any] | None = None
+
+    key_re = re.compile(r"^\s*([A-Za-z0-9_ -]+?):\s*(.*)$")
+    post_key_re = re.compile(r"^\s*post\s*\d+\s*:\s*$", re.I)
+    dash_field_re = re.compile(r"^\s*--\s*([A-Za-z0-9_ -]+?)\s*:\s*(.*)$")
+
+    for raw in lines:
+        if not raw:
+            # blank line separates posts
+            if cur_post:
+                posts.append(cur_post)
+                cur_post = None
+            continue
+
+        if post_key_re.match(raw):
+            if cur_post:
+                posts.append(cur_post)
+            cur_post = {}
+            continue
+
+        m_dash = dash_field_re.match(raw)
+        if m_dash:
+            k = m_dash.group(1).strip().lower()
+            v = m_dash.group(2).strip()
+            if cur_post is None:
+                cur_post = {}
+            cur_post[k] = v
+            continue
+
+        m = key_re.match(raw)
+        if m:
+            k = m.group(1).strip().lower()
+            v = m.group(2).strip()
+            # handle comma-separated lists (links)
+            if k in ("links", "urls"):
+                items = [i.strip() for i in re.split(r"[,;]", v) if i.strip()]
+                data[k] = items
+            else:
+                data[k] = v
+            continue
+
+        # fallback: try to attach unknown lines as description to current post
+        if cur_post is not None:
+            cur_post.setdefault("description", "")
+            cur_post["description"] += ("\n" + raw) if cur_post["description"] else raw
+
+    if cur_post:
+        posts.append(cur_post)
+
+    # Build canonical dict expected by normalize_profile
+    out: Dict[str, Any] = {}
+    # username / display_name
+    name = data.get("name") or data.get("display_name") or ""
+    # attempt to extract username in parentheses e.g. "sachit (@sr71__)"
+    username = ""
+    if name:
+        m = re.search(r"\((@?[^)]+)\)", name)
+        if m:
+            username = m.group(1).lstrip('@')
+        else:
+            # if an explicit name field like "name: sachit (@sr71__)" absent, try 'name' raw
+            username = data.get("name") or ""
+
+    out["username"] = username or data.get("handle") or data.get("screen_name") or ""
+    out["display_name"] = name or out["username"]
+    out["bio"] = data.get("bio") or data.get("description") or ""
+
+    # convert posts to expected posts list
+    parsed_posts: List[Dict[str, Any]] = []
+    for p in posts:
+        caption = p.get("caption") or ""
+        if caption and caption.lower().startswith("(none"):
+            caption = ""
+        description = p.get("description") or p.get("description") or ""
+        if not caption and description:
+            # use description as caption if caption missing
+            caption = description
+        timestamp = p.get("date") or p.get("timestamp") or p.get("time") or ""
+        parsed_posts.append({
+            "caption": caption,
+            "hashtags": [],
+            "timestamp": timestamp,
+            "description": description,
+            "url": p.get("url") or "",
+        })
+
+    out["posts"] = parsed_posts
+    # links
+    links = data.get("links") or data.get("urls") or []
+    out["links"] = links
+    # followers / following
+    try:
+        out["followers"] = int(data.get("followers", 0) or 0)
+    except Exception:
+        out["followers"] = 0
+    try:
+        out["following"] = int(data.get("following", 0) or 0)
+    except Exception:
+        out["following"] = 0
+
+    # Return a dict that normalize_profile can handle
+    return out

@@ -109,14 +109,25 @@
     </div>
     <script>
       async function runComparison() {
-        const body = {
-          profile1: JSON.parse(document.getElementById('profile1').value),
-          profile2: JSON.parse(document.getElementById('profile2').value)
-        };
+        const raw1 = document.getElementById('profile1').value;
+        const raw2 = document.getElementById('profile2').value;
+        let p1, p2;
+        try {
+          p1 = JSON.parse(raw1);
+        } catch (e) {
+          // send raw text to server for lenient parsing
+          p1 = raw1;
+        }
+        try {
+          p2 = JSON.parse(raw2);
+        } catch (e) {
+          p2 = raw2;
+        }
+
         const response = await fetch('/compare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          body: JSON.stringify({ profile1: p1, profile2: p2 })
         });
         const data = await response.json();
         document.getElementById('results').style.display = 'block';
