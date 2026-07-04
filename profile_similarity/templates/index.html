@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile Similarity Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #07111f;
+        --panel: rgba(10, 20, 34, 0.92);
+        --line: rgba(255,255,255,0.12);
+        --text: #f5f7fb;
+        --muted: #91a4c3;
+        --accent: #4cc9f0;
+        --accent-2: #9b5de5;
+        --success: #7bdcb5;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+        cursor: crosshair;
+        background:
+          radial-gradient(circle at 20% 20%, rgba(76, 201, 240, 0.16), transparent 24%),
+          radial-gradient(circle at 80% 10%, rgba(155, 93, 229, 0.18), transparent 28%),
+          linear-gradient(135deg, #07111f 0%, #06101d 45%, #04080f 100%);
+        color: var(--text);
+        overflow-x: hidden;
+        position: relative;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(76, 201, 240, 0.18) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(76, 201, 240, 0.18) 1px, transparent 1px),
+          radial-gradient(circle at top left, rgba(76, 201, 240, 0.06), transparent 20%),
+          radial-gradient(circle at bottom right, rgba(155, 93, 229, 0.06), transparent 18%);
+        background-size: 30px 30px, 30px 30px, auto, auto;
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.82), transparent 90%);
+        pointer-events: none;
+        z-index: 0;
+        animation: drift 18s linear infinite;
+      }
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(transparent 46%, rgba(76, 201, 240, 0.06) 48%, rgba(76, 201, 240, 0.1) 50%, rgba(76, 201, 240, 0.06) 52%, transparent 54%);
+        pointer-events: none;
+        z-index: 0;
+        animation: scan 8s linear infinite;
+      }
+      #cursor-glow {
+        position: fixed;
+        width: 260px;
+        height: 260px;
+        margin-left: -130px;
+        margin-top: -130px;
+        border: 1px solid rgba(76, 201, 240, 0.25);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 0;
+        mix-blend-mode: screen;
+        transition: opacity 120ms ease-out;
+        opacity: 0.7;
+        box-shadow: 0 0 40px rgba(76, 201, 240, 0.12);
+      }
+      #cursor-glow::before,
+      #cursor-glow::after {
+        content: '';
+        position: absolute;
+        inset: 50% auto auto 50%;
+        background: rgba(76, 201, 240, 0.65);
+        transform: translate(-50%, -50%);
+      }
+      #cursor-glow::before {
+        width: 1px;
+        height: 100%;
+      }
+      #cursor-glow::after {
+        width: 100%;
+        height: 1px;
+      }
+      .shell { max-width: 1180px; margin: 0 auto; padding: 40px 20px 80px; position: relative; z-index: 1; }
+      .hero { display: grid; gap: 20px; grid-template-columns: 1.1fr 0.9fr; align-items: start; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.32);
+        backdrop-filter: blur(12px);
+        position: relative;
+        overflow: hidden;
+      }
+      .card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(255,255,255,0.04), transparent 30%, transparent 70%, rgba(76, 201, 240, 0.04));
+        pointer-events: none;
+      }
+      .hero .card { padding: 30px; }
+      .eyebrow { text-transform: uppercase; letter-spacing: 0.28em; font-size: 0.78rem; color: var(--accent); font-weight: 700; }
+      h1 { font-size: 2.25rem; margin: 8px 0 14px; line-height: 1.15; }
+      p { color: var(--muted); line-height: 1.75; margin: 0; }
+      .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      .pill { display: inline-flex; padding: 8px 12px; border-radius: 999px; border: 1px solid rgba(76, 201, 240, 0.24); color: var(--accent); background: rgba(76, 201, 240, 0.12); font-size: 0.82rem; }
+      .grid { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; margin-top: 18px; }
+      textarea { width: 100%; min-height: 220px; border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #06101d; color: var(--text); resize: vertical; font-family: inherit; }
+      textarea:focus { outline: 1px solid rgba(76, 201, 240, 0.35); border-color: rgba(76, 201, 240, 0.35); }
+      button { border: none; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; padding: 12px 18px; border-radius: 999px; cursor: pointer; font-weight: 600; box-shadow: 0 12px 30px rgba(76, 201, 240, 0.18); }
+      button:hover { transform: translateY(-1px); }
+      .result { margin-top: 24px; padding: 24px; }
+      .score { font-size: 2.6rem; font-weight: 700; color: var(--success); }
+      .metric { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--text); }
+      .metric:last-child { border-bottom: none; }
+      .metric .name { text-transform: capitalize; color: var(--muted); }
+      .metric .value { font-weight: 600; }
+      .muted { color: var(--muted); }
+      .footnote { margin-top: 12px; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+      @keyframes drift {
+        from { transform: translateY(0); }
+        to { transform: translateY(-24px); }
+      }
+      @keyframes scan {
+        from { transform: translateY(-100%); }
+        to { transform: translateY(100%); }
+      }
+      @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div id="cursor-glow"></div>
+    <div class="shell">
+      <section class="hero">
+        <div class="card">
+          <div class="eyebrow">Analyst-grade comparison</div>
+          <h1>Public profile similarity engine</h1>
+          <p>Compare two public social profiles using a blend of identity, content, styling, and behavior features while keeping the output strictly analytical and non-deterministic about personhood.</p>
+          <div class="pill-row">
+            <div class="pill">Explainable 0–100 scoring</div>
+            <div class="pill">Feature-level reasoning</div>
+            <div class="pill">Non-identity framing</div>
+          </div>
+        </div>
+        <div class="card" style="padding: 24px;">
+          <div class="eyebrow">Input</div>
+          <div class="grid">
+            <div>
+              <label class="muted">Profile 1</label>
+              <textarea id="profile1">{"username":"alex_analyst","display_name":"Alex Chen","bio":"Computer science student in Bangalore, loves coffee and open source.","captions":["Building a data dashboard","Coffee break before the next sprint"],"hashtags":["#ai","#opensource","#coffee"],"posting_times":["2026-05-14T20:35:22"],"profile_image":""}</textarea>
+            </div>
+            <div>
+              <label class="muted">Profile 2</label>
+              <textarea id="profile2">{"username":"alexanalyst","display_name":"Alexander Chen","bio":"CS student in Bangalore, enjoys coffee and community coding.","captions":["Working on a data dashboard","Taking a coffee break before sprint"],"hashtags":["#opensource","#coffee","#tech"],"posting_times":["2026-05-14T21:35:22"],"profile_image":""}</textarea>
+            </div>
+          </div>
+          <div style="margin-top: 16px;">
+            <button onclick="runComparison()">Compare profiles</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card result" id="results" style="display:none;">
+        <div class="eyebrow">Outcome</div>
+        <div class="score" id="overall">0.00</div>
+        <div class="footnote">Similarity is presented as an analyst aid and should not be interpreted as proof of identity.</div>
+        <div id="metrics"></div>
+      </section>
+    </div>
+
+    <script>
+      const cursorGlow = document.getElementById('cursor-glow');
+      document.addEventListener('mousemove', (event) => {
+        if (!cursorGlow) return;
+        cursorGlow.style.left = `${event.clientX}px`;
+        cursorGlow.style.top = `${event.clientY}px`;
+        cursorGlow.style.opacity = '0.5';
+      });
+      document.addEventListener('mouseleave', () => {
+        if (cursorGlow) cursorGlow.style.opacity = '0';
+      });
+      document.addEventListener('mouseenter', () => {
+        if (cursorGlow) cursorGlow.style.opacity = '0.5';
+      });
+
+      async function runComparison() {
+        const body = {
+          profile1: JSON.parse(document.getElementById('profile1').value),
+          profile2: JSON.parse(document.getElementById('profile2').value)
+        };
+        const response = await fetch('/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        document.getElementById('results').style.display = 'block';
+        document.getElementById('overall').textContent = `${data.overall_similarity.toFixed(2)} / 100`;
+        const metrics = document.getElementById('metrics');
+        metrics.innerHTML = '';
+        Object.entries(data.scores).forEach(([key, value]) => {
+          const row = document.createElement('div');
+          row.className = 'metric';
+          row.innerHTML = `<span class="name">${key.replace(/_/g, ' ')}</span><span class="value">${Number(value).toFixed(2)}</span>`;
+          metrics.appendChild(row);
+        });
+        const explanation = document.createElement('div');
+        explanation.className = 'footnote';
+        explanation.textContent = data.explanations?.[0]?.reason || 'No explanation available.';
+        metrics.appendChild(explanation);
+      }
+    </script>
+  </body>
+</html>
