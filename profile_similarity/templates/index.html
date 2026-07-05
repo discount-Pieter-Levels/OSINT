@@ -122,6 +122,7 @@ post1:
           </div>
           <div class="actions">
             <button class="button" onclick="runComparison()">Compare profiles</button>
+            <button class="button" style="margin-left:12px; background:transparent; border:1px solid var(--border);" onclick="runStylometry()">Authorship check</button>
           </div>
           <p class="note">Paste two public profile dumps in the human-readable format (e.g. lines like "name:", "post1:", "--date:", "--caption:").</p>
         </div>
@@ -134,6 +135,15 @@ post1:
             <p class="note">The score is informative and not a conclusion about account ownership.</p>
           </div>
           <div class="metrics" id="metrics"></div>
+          <div id="stylometryResult" style="margin-top:18px; display:none;">
+            <div class="score-card">
+              <div class="score-title">
+                <span class="label">Stylometry (same author)</span>
+                <span class="value" id="stylometryScore">0.00</span>
+              </div>
+              <p class="note" id="stylometryNote"></p>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -158,6 +168,22 @@ post1:
           row.innerHTML = `<div class="metric-name">${key.replace(/_/g, ' ')}</div><div class="metric-value">${Number(value).toFixed(2)}</div>`;
           metrics.appendChild(row);
         });
+      }
+
+      async function runStylometry() {
+        const raw1 = document.getElementById('profile1').value;
+        const raw2 = document.getElementById('profile2').value;
+        const response = await fetch('/stylometry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile1: raw1, profile2: raw2 })
+        });
+        const data = await response.json();
+        document.getElementById('results').style.display = 'block';
+        const el = document.getElementById('stylometryResult');
+        el.style.display = 'block';
+        document.getElementById('stylometryScore').textContent = `${(data.stylometry_score*100).toFixed(2)} / 100`;
+        document.getElementById('stylometryNote').textContent = data.reason || (data.note || '');
       }
     </script>
   </body>

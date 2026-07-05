@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, render_template, request
 from profile_similarity.matcher.ranking import rank_profiles
 from profile_similarity.preprocessor import normalize_profile, parse_plain_text_profile
 from profile_similarity.features.stylometry import stylometry_similarity
+from profile_similarity.calibration import calibrate_probability
 
 bp = Blueprint("main", __name__)
 
@@ -55,4 +56,5 @@ def stylometry_check():
     a = normalize_profile(a)
     b = normalize_profile(b)
     score, reason = stylometry_similarity(a, b)
-    return jsonify({"stylometry_score": float(score), "reason": reason})
+    prob = calibrate_probability(float(score))
+    return jsonify({"stylometry_score": float(score), "probability": float(prob), "reason": reason})
