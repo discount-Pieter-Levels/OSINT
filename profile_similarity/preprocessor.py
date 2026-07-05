@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 try:
@@ -17,15 +17,35 @@ def _parse_date(s: Any) -> str:
         except Exception:
             return str(s)
     s_str = str(s).strip()
+    # Remove parenthetical comments like "(~1 hour ago at time of check)" before parsing
+    s_clean = re.sub(r"\(.*?\)", "", s_str).strip()
+
+    # Handle relative times like "~3 hours ago" or "3 hours ago"
+    rel_match = re.search(r"~?\s*(\d+)\s*(hour|hours|hr|hrs)\b", s_clean, re.I)
+    if not rel_match:
+        rel_match = re.search(r"~?\s*(\d+)\s*(minute|minutes|min|mins)\b", s_clean, re.I)
+    if rel_match:
+        try:
+            qty = int(rel_match.group(1))
+            unit = rel_match.group(2).lower()
+            now = datetime.utcnow()
+            if unit.startswith("hour") or unit.startswith("hr"):
+                ts = now - timedelta(hours=qty)
+            else:
+                ts = now - timedelta(minutes=qty)
+            return ts.isoformat()
+        except Exception:
+            pass
+
     if _date_parser:
         try:
-            return _date_parser.parse(s_str).isoformat()
+            return _date_parser.parse(s_clean).isoformat()
         except Exception:
             pass
     fmts = ["%B %d, %Y", "%b %d, %Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%m/%d/%Y", "%d %b %Y"]
     for f in fmts:
         try:
-            return datetime.strptime(s_str, f).isoformat()
+            return datetime.strptime(s_clean, f).isoformat()
         except Exception:
             continue
     return s_str
@@ -181,6 +201,18 @@ def parse_plain_text_profile(text: str) -> Dict[str, Any]:
 
     if cur_post:
         posts.append(cur_post)
+
+    # If the input contained no structured fields, treat the entire text as raw caption/bio
+    if not data and not posts:
+        raw_text = text.strip()
+        if raw_text:
+            return {
+                "username": "",
+                "display_name": "",
+                "bio": "",
+                "captions": [raw_text],
+                "posting_times": [],
+            }
 
     # Build canonical dict expected by normalize_profile
     out: Dict[str, Any] = {}
